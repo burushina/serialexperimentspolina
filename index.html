@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polina Burushina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #ffffff; --void: #000000; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--void); color: var(--ink);
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    overflow: hidden;
+  }
+  canvas#stage {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    display: block;
+    background: var(--void);
+    touch-action: manipulation;
+  }
+  .overlay {
+    position: fixed; z-index: 10;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+  }
+  #brand { top: 18px; left: 0; right: 0; text-align: center; font-size: 16px; line-height: 1.4; text-transform: none; }
+
+  #readout {
+    position: fixed; z-index: 9;
+    left: 50%; bottom: 54px; transform: translateX(-50%);
+    width: min(820px, calc(100vw - 80px));
+    text-align: center; line-height: 1.5;
+    background: var(--void); padding: 10px 18px;
+    pointer-events: none;
+  }
+  #readout .rt { font-size: 18px; letter-spacing: 0.04em; min-height: 1.4em; }
+  #readout .rd { font-size: 16px; line-height: 1.5; margin-top: 8px; min-height: 1.5em; }
+  #readout .rh {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    margin-top: 10px; color: rgba(255,255,255,0.55); display: none;
+  }
+  body.peek #readout .rh { display: block; }
+
+  @media (max-width: 760px) {
+    #brand { font-size: 13px; }
+    #readout .rt { font-size: 15px; }
+    #readout .rd { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<div id="brand" class="overlay">serial experiments polina</div>
+
+
+<div id="readout">
+  <div class="rt">&nbsp;</div>
+  <div class="rd">&nbsp;</div>
+  <div class="rh">↳ tap again to open</div>
+</div>
+
+<script>
+/* ============================================================
+   ASCII house renderer.
+   Glyphs are painted onto a 2D canvas using a measured
+   monospace cell grid. Window/door labels register clickable
+   hit zones in canvas pixel space.
+   ============================================================ */
+(() => {
+  const stage = document.getElementById('stage');
+  const ctx = stage.getContext('2d');
+  const readout = document.getElementById('readout');
+  const rt = readout.querySelector('.rt');
+  const rd = readout.querySelector('.rd');
+
+  const PLACES = {
+    '01': { label: 'dollhouse', meta: '',
+      blurb: 'A dollhouse my grandfather made for me, rebuilt in Roblox at full scale.', go: 'project-atlas.html' },
+    '02': { label: 'childhood home', meta: '',
+      blurb: 'The house I grew up in, sold when I emigrated — scanned, recorded, moved into Roblox.', go: 'project-house.html' },
+    '03': { label: 'rented home', meta: '',
+      blurb: 'An 18th-century watermill, now the residency where I live and work.', go: 'project-mill.html' },
+    '04': { label: 'a home for everyone', meta: '',
+      blurb: 'A concert in a village church, recreated in Roblox — an event that keeps calling after it ends.', go: 'project-church.html' },
+    '00': { label: 'about', meta: '',
+      blurb: 'Statement and contact.', go: 'about.html' }
+  };
+
+  const coarse = window.matchMedia('(hover: none)').matches;
+
+  // ---- glyph matrix metrics (measured, not assumed) ----
+  let cellW = 0, cellH = 0, fontPx = 0;
+  let nCols = 0, nRows = 0;
+  let dpr = 1;
+
+  function pickFont() {
+    const w = window.innerWidth;
+    if (w <= 430) return 12;
+    if (w <= 760) return 14;
+    if (w <= 1200) return 16;
+    return 18;
+  }
+
+  function measure() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    fontPx = pickFont();
+    // measure one glyph in the target font
+    ctx.font = fontPx + "px 'IBM Plex Mono', 'Courier New', monospace";
+    const m = ctx.measureText('M');
+    cellW = Math.max(1, m.width);
+    cellH = Math.round(fontPx * 1.32);
+    nCols = Math.floor(window.innerWidth / cellW);
+    nRows = Math.floor(window.innerHeight / cellH);
+
+    stage.width = Math.floor(window.innerWidth * dpr);
+    stage.height = Math.floor(window.innerHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = fontPx + "px 'IBM Plex Mono', 'Courier New', monospace";
+    ctx.textBaseline = 'top';
+  }
+
+  // ---- the scene is a list of glyph placements + hit zones ----
+  // Each frame we compose `cellsText` (sparse map) and `zones`.
+  let zones = []; // {id, cx, cy, x0,y0,x1,y1} in pixel space
+  let activeId = null; // nothing highlighted until hovered/tapped
+
+  function blueprint() {
+    // returns { stamp(col,row,ch), zone(id,col,row,len) } collector
+    const glyphs = new Map(); // key "c,r" -> char
+    const localZones = [];
+    const api = {
+      text(col, row, str) {
+        for (let i = 0; i < str.length; i++) {
+          const c = col + i;
+          if (c >= 0 && c < nCols && row >= 0 && row < nRows) glyphs.set(c + ',' + row, str[i]);
+        }
+      },
+      hline(c0, c1, row, ch) { for (let c = c0; c <= c1; c++) api.text(c, row, ch); },
+      vline(col, r0, r1, ch) { for (let r = r0; r <= r1; r++) api.text(col, r, ch); },
+      diag(c0, r0, c1, r1, ch) {
+        const dc = Math.abs(c1 - c0), dr = Math.abs(r1 - r0);
+        const sc = c0 < c1 ? 1 : -1, sr = r0 < r1 ? 1 : -1;
+        let e = dc - dr, c = c0, r = r0;
+        for (;;) {
+          api.text(c, r, ch);
+          if (c === c1 && r === r1) break;
+          const e2 = 2 * e;
+          if (e2 > -dr) { e -= dr; c += sc; }
+          if (e2 < dc) { e += dc; r += sr; }
+        }
+      },
+      label(id, col, row, str) {
+        api.text(col, row, str);
+        localZones.push({ id, c0: col, r: row, len: str.length });
+      }
+    };
+    return { glyphs, localZones, api };
+  }
+
+  function composeHouse() {
+    const { glyphs, localZones, api } = blueprint();
+
+    const span = Math.min(nCols - 14, 50);
+    const bodyRows = 16, roofRows = 7;
+    const left = Math.floor((nCols - span) / 2);
+    const right = left + span - 1;
+    const mid = Math.floor((left + right) / 2);
+
+    const peak = Math.max(4, Math.floor((nRows - (roofRows + bodyRows)) / 2) - 3);
+    const eaves = peak + roofRows;
+    const base = eaves + bodyRows;
+
+    api.diag(left, eaves, mid, peak, '/');
+    api.diag(right, eaves, mid, peak, '\\');
+    api.hline(left, right, eaves, '_');
+    api.vline(left, eaves + 1, base - 1, '|');
+    api.vline(right, eaves + 1, base - 1, '|');
+    api.hline(left, right, base, '_');
+
+    const inTop = eaves + 1, inBot = base - 1, inH = inBot - inTop + 1;
+    const fl1 = inTop + Math.floor(inH / 3);
+    const fl2 = inTop + Math.floor(inH * 2 / 3);
+    for (let c = left + 1; c < right; c++) {
+      if (!glyphs.has(c + ',' + fl1)) api.text(c, fl1, '.');
+      if (!glyphs.has(c + ',' + fl2)) api.text(c, fl2, '.');
+    }
+
+    const wL = left + Math.floor(span * 0.25);
+    const wR = left + Math.floor(span * 0.75);
+    // numbering bottom-up: lower row 01,02 / upper row 03,04
+    api.label('03', wL - 3, Math.floor((inTop + fl1) / 2), '[ 03 ]');
+    api.label('04', wR - 3, Math.floor((inTop + fl1) / 2), '[ 04 ]');
+    api.label('01', wL - 3, Math.floor((fl1 + fl2) / 2), '[ 01 ]');
+    api.label('02', wR - 3, Math.floor((fl1 + fl2) / 2), '[ 02 ]');
+
+    const dBot = base, dTop = dBot - 4;
+    api.text(mid - 3, dTop,     '+----+');
+    api.text(mid - 3, dTop + 1, '|    |');
+    api.label('00', mid - 3, dTop + 2, '| 00 |');
+    api.text(mid - 3, dTop + 3, '|    |');
+    api.text(mid - 3, dBot,     '|_||_|');
+
+    return { glyphs, localZones };
+  }
+
+  // atmospheric grain — sin/jitter field over a small glyph set
+  const GRAIN = ['.', ':', '\u00B7', '+', '~', '\u00B0'];
+  function scatter(glyphs, t) {
+    const budget = Math.floor(nCols * nRows * 0.005);
+    for (let i = 0; i < budget; i++) {
+      const c = (Math.random() * nCols) | 0;
+      const r = (Math.random() * nRows) | 0;
+      if (glyphs.has(c + ',' + r)) continue;
+      const wob = Math.sin(t * 0.6 + c * 0.11 + r * 0.07);
+      const g = wob > 0.55 ? '*' : GRAIN[(Math.random() * GRAIN.length) | 0];
+      glyphs.set(c + ',' + r, g);
+    }
+  }
+
+  let tick = 0;
+  function paint() {
+    tick++;
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    const { glyphs, localZones } = composeHouse();
+    scatter(glyphs, tick * 0.08);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = fontPx + "px 'IBM Plex Mono', 'Courier New', monospace";
+    ctx.textBaseline = 'top';
+    glyphs.forEach((ch, key) => {
+      const [c, r] = key.split(',');
+      ctx.fillText(ch, c * cellW, r * cellH);
+    });
+
+    // highlight the active label — stable inverse: solid white box, black text.
+    // only when something is actually selected (activeId may be null at rest).
+    const activeZone = activeId ? localZones.find(z => z.id === activeId) : null;
+    if (activeZone) {
+      const zx = activeZone.c0 * cellW;
+      const zy = activeZone.r * cellH;
+      const zw = activeZone.len * cellW;
+      const pad = Math.max(2, cellW * 0.35);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(zx - pad, zy, zw + pad * 2, cellH);
+      ctx.fillStyle = '#000';
+      for (let i = 0; i < activeZone.len; i++) {
+        const ch = glyphs.get((activeZone.c0 + i) + ',' + activeZone.r);
+        if (ch) ctx.fillText(ch, (activeZone.c0 + i) * cellW, activeZone.r * cellH);
+      }
+      ctx.fillStyle = '#fff';
+    }
+
+    // rebuild pixel-space hit zones from this frame's labels
+    // hit zones expanded beyond the visible glyphs so taps/clicks land easily
+    const padX = cellW * (coarse ? 1.4 : 0.6);
+    const padY = cellH * (coarse ? 1.1 : 0.4);
+    zones = localZones.map(z => ({
+      id: z.id,
+      x0: z.c0 * cellW - padX, y0: z.r * cellH - padY,
+      x1: (z.c0 + z.len) * cellW + padX, y1: (z.r + 1) * cellH + padY
+    }));
+  }
+
+  let raf = null, last = 0;
+  function loop(ts) {
+    if (ts - last > 130) { last = ts; if (!document.hidden) paint(); }
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ---- interaction ----
+  function hitAt(px, py) {
+    for (const z of zones) {
+      if (px >= z.x0 && px <= z.x1 && py >= z.y0 && py <= z.y1) return z.id;
+    }
+    return null;
+  }
+  const HINT = coarse ? 'tap a window to preview'
+                      : 'hover a window · click to open';
+  function show(id, armedForOpen) {
+    const p = PLACES[id]; if (!p) return;
+    activeId = id;
+    if (id === '00') {
+      rt.textContent = '[ 00 ] about →';
+    } else {
+      rt.textContent = '[' + id + '] ' + p.label;
+    }
+    rd.textContent = p.blurb;
+  }
+  // resting state: nothing selected, readout shows the hint
+  function leave() { activeId = null; rt.textContent = HINT; rd.innerHTML = '&nbsp;'; }
+
+  let armed = null;
+  stage.addEventListener('pointermove', e => {
+    if (coarse || stmtOpen) return;
+    const id = hitAt(e.clientX, e.clientY);
+    stage.style.cursor = id ? 'pointer' : 'default';
+    if (id) show(id); else leave();
+  });
+  stage.addEventListener('click', e => {
+    if (stmtOpen) return;
+    const id = hitAt(e.clientX, e.clientY);
+    if (!id) { armed = null; document.body.classList.remove('peek'); if (coarse) leave(); return; }
+    // coarse (touch): first tap previews + arms; second tap on same window opens
+    if (coarse && armed !== id) { show(id); armed = id; document.body.classList.add('peek'); return; }
+    armed = null; document.body.classList.remove('peek');
+    const p = PLACES[id]; if (p && p.go) window.location.href = p.go;
+  });
+
+  window.addEventListener('resize', measure);
+  measure();
+  leave();
+  raf = requestAnimationFrame(loop);
+
+  const stmtOpen = false; // statement overlay removed; text now lives on about page
+
+  // re-measure once the web font is ready (canvas needs the real glyph metrics)
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.load("16px 'IBM Plex Mono'").then(() => {
+      document.fonts.ready.then(() => { measure(); });
+    });
+  }
+})();
+</script>
+</body>
+</html>
