@@ -17,7 +17,7 @@
     overflow: hidden;
   }
   canvas#stage {
-    position: fixed; inset: 0;
+    position: fixed; inset: 0; z-index: 1;
     width: 100vw; height: 100vh;
     display: block;
     background: var(--void);
@@ -46,6 +46,10 @@
     margin-top: 10px; color: rgba(255,255,255,0.55); display: none;
   }
   body.hot #readout .rh { display: block; }
+  /* a project is selected: hide the experiment line, the caption becomes a link */
+  #readout.sel { pointer-events: auto; cursor: pointer; }
+  #readout.sel .re { display: none; }
+  #readout.sel:hover .rt { text-decoration: underline; }
 
   @media (max-height: 760px) { #readout { bottom: 16px; } }
 
@@ -113,7 +117,9 @@
     return 18;
   }
 
+  let capTop = window.innerHeight * 0.8;
   function measure() {
+    if (!readout.classList.contains('sel')) capTop = readout.getBoundingClientRect().top;
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     fontPx = pickFont();
     // measure one glyph in the target font
@@ -175,8 +181,8 @@
     const span = Math.min(nCols - 14, 50);
     const roofRows = 7;
     // keep the house above the caption block at the bottom
-    const capRow = Math.floor(readout.getBoundingClientRect().top / cellH) - 1;
-    const bodyRows = Math.max(12, Math.min(16, capRow - 2 - roofRows));
+    const capRow = Math.floor(capTop / cellH) - 1;
+    const bodyRows = Math.max(12, Math.min(19, capRow - 2 - roofRows));
     const left = Math.floor((nCols - span) / 2);
     const right = left + span - 1;
     const mid = Math.floor((left + right) / 2);
@@ -207,7 +213,7 @@
     // numbering bottom-up: lower row 01,02 / upper row 03,04
     const wins = [];
     // all four windows share one size: the shorter floor decides it
-    const padY = Math.max(3, cellH * 0.35);
+    const padY = Math.max(2, cellH * 0.18);
     const winH = Math.min(fl1 - inTop, fl2 - fl1 - 1) * cellH - padY * 2;
     function win(id, colCenter, r0, r1) {
       const h = winH, w = Math.round(h * 2 / 3);
@@ -254,21 +260,34 @@
   const vids = {};
   const vbox = document.createElement('div');
   vbox.setAttribute('aria-hidden', 'true');
-  vbox.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;';
+  // browsers pause muted autoplay video that is invisible (opacity 0 / 1px). so the videos sit,
+  // full size, at their window positions *under* the opaque canvas, which paints them.
+  vbox.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;';
   document.body.appendChild(vbox);
   Object.keys(VIDS).forEach(id => {
     const v = document.createElement('video');
     v.muted = true; v.defaultMuted = true; v.loop = true; v.autoplay = true;
     v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
     v.preload = 'auto'; v.src = VIDS[id];
+    v.style.cssText = 'position:absolute;left:0;top:0;width:60px;height:90px;object-fit:cover;';
     vbox.appendChild(v);
     v.play().catch(() => {});
     vids[id] = v;
   });
-  // some phones (low-power mode) block autoplay until the first touch
-  const kick = () => Object.values(vids).forEach(v => { if (v.paused) v.play().catch(() => {}); });
-  window.addEventListener('pointerdown', kick, { once: true });
+  // keep them running: some phones block autoplay until a touch, some pause on their own.
+  // the selected window is the only one meant to be frozen.
+  const kick = () => Object.entries(vids).forEach(([id, v]) => {
+    if (v.paused && id !== activeId) v.play().catch(() => {});
+  });
+  window.addEventListener('pointerdown', kick);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
+  setInterval(() => { if (!document.hidden) kick(); }, 1500);
+  function placeVideos(wins) {
+    wins.forEach(r => {
+      const st = vids[r.id].style;
+      st.left = r.x + 'px'; st.top = r.y + 'px'; st.width = r.w + 'px'; st.height = r.h + 'px';
+    });
+  }
   const vReady = v => v.readyState >= 2 && v.videoWidth > 0;
 
   // ---- glitch scheduler ----
@@ -277,7 +296,7 @@
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const state = {};
   ['01', '02', '03', '04'].forEach(id => state[id] = { mode: 'video', until: 0, then: null });
-  let nextEvent = performance.now() + 1200 + Math.random() * 1500;
+  let nextEvent = performance.now() + 2500 + Math.random() * 2500;
   const rnd = (a, b) => a + Math.random() * (b - a);
   function schedule(now) {
     for (const id in state) {
@@ -292,10 +311,10 @@
     const idle = Object.keys(state).filter(id => state[id].mode === 'video' && id !== activeId);
     if (idle.length) {
       const st = state[idle[(Math.random() * idle.length) | 0]];
-      st.mode = 'glitch'; st.until = now + rnd(220, 650);
-      st.then = Math.random() < 0.5 ? 'label' : null;
+      st.mode = 'glitch'; st.until = now + rnd(200, 420);
+      st.then = 'label';
     }
-    nextEvent = now + rnd(1400, 3800);
+    nextEvent = now + rnd(4500, 9000);
   }
 
   // cover-fit source rect for a video into a w x h box
@@ -315,21 +334,20 @@
     const c = coverSrc(v, r.w, r.h);
     if (Math.random() < 0.85) ctx.drawImage(v, c.sx, c.sy, c.sw, c.sh, r.x + rnd(-3, 3), r.y, r.w, r.h);
     // torn horizontal bands, shifted sideways
-    const bands = 3 + ((Math.random() * 6) | 0);
+    const bands = 2 + ((Math.random() * 3) | 0);
     for (let i = 0; i < bands; i++) {
-      const bh = Math.max(2, rnd(0.03, 0.22) * r.h), by = rnd(0, r.h - bh), dx = rnd(-0.35, 0.35) * r.w;
+      const bh = Math.max(2, rnd(0.03, 0.14) * r.h), by = rnd(0, r.h - bh), dx = rnd(-0.18, 0.18) * r.w;
       ctx.drawImage(v, c.sx, c.sy + by / c.k, c.sw, bh / c.k, r.x + dx, r.y + by, r.w, bh);
-      if (Math.random() < 0.35) {
+      if (Math.random() < 0.25) {
         ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,0,90,0.35)' : 'rgba(0,220,255,0.35)';
+        ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,0,90,0.22)' : 'rgba(0,220,255,0.22)';
         ctx.fillRect(r.x + dx * 0.4, r.y + by, r.w, bh);
         ctx.globalCompositeOperation = 'source-over';
       }
     }
     // white scan lines + dropout
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    for (let i = 0; i < 3; i++) if (Math.random() < 0.5) ctx.fillRect(r.x, r.y + rnd(0, r.h), r.w, 1);
-    if (Math.random() < 0.15) { ctx.fillStyle = '#000'; ctx.fillRect(r.x, r.y + rnd(0, r.h * 0.7), r.w, rnd(4, r.h * 0.3)); }
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    for (let i = 0; i < 2; i++) if (Math.random() < 0.4) ctx.fillRect(r.x, r.y + rnd(0, r.h), r.w, 1);
     ctx.restore();
   }
   function drawLabel(id, r, inverse) {
@@ -350,6 +368,7 @@
     tick++;
     scene = composeHouse();
     scatter(scene.glyphs, tick * 0.08);
+    placeVideos(scene.wins);
   }
   function paint(now) {
     if (!scene) compose();
@@ -371,7 +390,8 @@
       const v = vids[r.id], st = state[r.id], ok = vReady(v);
       ctx.fillStyle = '#000'; ctx.fillRect(r.x, r.y, r.w, r.h); // clear grain under the window
       ctx.fillStyle = '#fff';
-      if (!ok || st.mode === 'label') drawLabel(r.id, r, activeId === r.id);
+      if (activeId === r.id) { if (ok) drawVideo(v, r); drawLabel(r.id, r, true); }
+      else if (!ok || st.mode === 'label') drawLabel(r.id, r, false);
       else if (st.mode === 'glitch') drawGlitch(v, r);
       else {
         drawVideo(v, r);
@@ -422,36 +442,51 @@
   }
   const TAGLINE = 'four games built from real places';
   const rh = readout.querySelector('.rh');
-  rh.textContent = '\u21B3 tap again to open';
-  function show(id, armedForOpen) {
+  rh.textContent = '\u21B3 tap again or tap here to open';
+  function setActive(id) {
+    if (activeId === id) return;
+    const prev = activeId; activeId = id;
+    if (prev && vids[prev]) vids[prev].play().catch(() => {});       // resume the one we left
+    if (id && vids[id]) { vids[id].pause(); state[id].mode = 'video'; } // freeze the chosen one
+  }
+  function show(id) {
     const p = PLACES[id]; if (!p) return;
-    activeId = id;
-    if (id === '00') {
-      rt.textContent = '[ 00 ] about →';
-    } else {
-      rt.textContent = '[' + id + '] ' + p.label;
-    }
+    setActive(id);
+    rt.textContent = id === '00' ? '[ 00 ] about \u2192' : '[ ' + id + ' ] ' + p.label + ' \u2192';
     rd.textContent = p.blurb;
+    readout.classList.add('sel');
     if (coarse) document.body.classList.add('hot'); // touch only: second tap opens
   }
-  // resting state: nothing selected, readout shows the hint
-  function leave() { activeId = null; rt.textContent = TAGLINE; rd.innerHTML = '&nbsp;'; document.body.classList.remove('hot'); }
+  // resting state: nothing selected, readout shows the experiment + tagline
+  function leave() {
+    setActive(null); armed = null;
+    rt.textContent = TAGLINE; rd.innerHTML = '&nbsp;';
+    readout.classList.remove('sel'); document.body.classList.remove('hot');
+  }
+  const open = id => { const p = PLACES[id]; if (p && p.go) window.location.href = p.go; };
 
-  let armed = null;
+  let armed = null, leaveT = null;
+  const cancelLeave = () => { clearTimeout(leaveT); leaveT = null; };
   stage.addEventListener('pointermove', e => {
     if (coarse || stmtOpen) return;
     const id = hitAt(e.clientX, e.clientY);
     stage.style.cursor = id ? 'pointer' : 'default';
-    if (id) show(id); else leave();
+    if (id) { cancelLeave(); show(id); }
+    // small grace period so the pointer can travel down to the caption and click it
+    else if (activeId && !leaveT) leaveT = setTimeout(() => { leaveT = null; leave(); }, 900);
   });
+  readout.addEventListener('pointerenter', cancelLeave);
+  readout.addEventListener('pointerleave', () => {
+    if (!coarse && activeId && !leaveT) leaveT = setTimeout(() => { leaveT = null; leave(); }, 900);
+  });
+  readout.addEventListener('click', () => { if (activeId) open(activeId); });
   stage.addEventListener('click', e => {
     if (stmtOpen) return;
     const id = hitAt(e.clientX, e.clientY);
-    if (!id) { armed = null; document.body.classList.remove('peek'); if (coarse) leave(); return; }
-    // coarse (touch): first tap previews + arms; second tap on same window opens
-    if (coarse && armed !== id) { show(id); armed = id; document.body.classList.add('peek'); return; }
-    armed = null; document.body.classList.remove('peek');
-    const p = PLACES[id]; if (p && p.go) window.location.href = p.go;
+    if (!id) { if (coarse) leave(); return; }
+    // touch: first tap selects (frozen frame + number + caption); second tap or caption tap opens
+    if (coarse && armed !== id) { show(id); armed = id; return; }
+    open(id);
   });
 
   window.addEventListener('resize', () => { measure(); scene = null; });
