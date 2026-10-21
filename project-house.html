@@ -72,6 +72,12 @@
   .vframe .tag { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
     font-size:10px; letter-spacing:.12em; color:var(--dim); background:var(--void); padding:1px 7px; }
   .vframe.ready .tag { display:none; }
+  .vframe .vplay { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    font:inherit; font-size:13px; letter-spacing:.04em; color:#000; background:#fff;
+    border:0; padding:1px 8px; cursor:pointer; }
+  .vframe .vplay:hover { background:#000; color:#fff; }
+  .vframe .vplay:focus-visible { outline:1px dashed #fff; outline-offset:2px; }
+  .vframe.playing .vplay { display:none; }
   .vbar { display:flex; justify-content:space-between; align-items:center; gap:10px;
     margin:6px auto 0; font-size:12px; white-space:nowrap;
     width:min(100%, calc(78vh * 9 / 16)); width:min(100%, calc(78svh * 9 / 16)); }
@@ -110,11 +116,10 @@
   <section class="vid">
     <div class="vframe" id="vframe">
       <!-- put the file at images/Childhood_home_video.mp4 -->
-      <video id="vid" src="images/Childhood_home_video.mp4#t=0.1" preload="metadata" playsinline></video>
-      <span class="tag">video</span>
+      <video id="vid" src="images/Childhood_home_video.mp4#t=0.1" poster="images/Childhood_home_cover.jpg" preload="metadata" playsinline></video>
+      <button type="button" class="vplay" id="vplay">[ play ]</button>
     </div>
     <div class="vbar" aria-label="video controls">
-      <button type="button" id="vplay">[ play ]</button>
       <span class="track" id="vtrack" aria-hidden="true"></span>
       <span class="time" id="vtime">0:00</span>
       <button type="button" id="vmute">[ mute ]</button>
@@ -218,12 +223,12 @@
     const n = cells(), p = v.duration ? v.currentTime / v.duration : 0, k = Math.round(p * n);
     track.textContent = '#'.repeat(k) + '\u00B7'.repeat(n - k);
     time.textContent = fmt(v.currentTime) + ' / ' + fmt(v.duration);
-    bPlay.textContent = v.paused ? '[ play ]' : '[ pause ]';
+    f.classList.toggle('playing', !v.paused);
     bMute.textContent = v.muted ? '[ unmute ]' : '[ mute ]';
   }
   const toggle = () => { if (v.paused) { v.play().catch(() => {}); } else v.pause(); };
-  f.addEventListener('click', toggle);
-  bPlay.addEventListener('click', toggle);
+  f.addEventListener('click', toggle); // the [ play ] text sits inside the frame
+  const cover = new Image(); cover.onload = () => f.classList.add('ready'); cover.src = v.poster;
   bMute.addEventListener('click', () => { v.muted = !v.muted; draw(); });
   track.addEventListener('click', e => {
     if (!v.duration) return;
