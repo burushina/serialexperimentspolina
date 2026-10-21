@@ -116,7 +116,7 @@
   <section class="vid">
     <div class="vframe" id="vframe">
       <!-- put the file at images/Childhood_home_video.mp4 -->
-      <video id="vid" src="images/Childhood_home_video.mp4#t=0.1" poster="images/Childhood_home_cover.jpg" preload="metadata" playsinline></video>
+      <video id="vid" src="images/Childhood_home_video.mp4" poster="images/Childhood_home_cover.jpg" preload="metadata" playsinline></video>
       <button type="button" class="vplay" id="vplay">[ play ]</button>
     </div>
     <div class="vbar" aria-label="video controls">
@@ -223,10 +223,29 @@
     const n = cells(), p = v.duration ? v.currentTime / v.duration : 0, k = Math.round(p * n);
     track.textContent = '#'.repeat(k) + '\u00B7'.repeat(n - k);
     time.textContent = fmt(v.currentTime) + ' / ' + fmt(v.duration);
-    f.classList.toggle('playing', !v.paused);
+    f.classList.toggle('playing', !v.paused && !loading);
+    if (!loading) bPlay.textContent = '[ play ]';
     bMute.textContent = v.muted ? '[ unmute ]' : '[ mute ]';
   }
-  const toggle = () => { if (v.paused) { v.play().catch(() => {}); } else v.pause(); };
+  // while the video is buffering, [ play ] grows dots: [ play. ] [ play.. ] [ play... ]
+  let loading = false, dots = 0, dotTimer = null;
+  function setLoading(on) {
+    loading = on; clearInterval(dotTimer);
+    if (on) {
+      dots = 0;
+      const tickDots = () => { dots = dots % 3 + 1; bPlay.textContent = '[ play' + '.'.repeat(dots) + ' ]'; };
+      tickDots(); dotTimer = setInterval(tickDots, 400);
+    }
+    draw();
+  }
+  const toggle = () => {
+    if (v.paused) { setLoading(true); v.play().catch(() => setLoading(false)); }
+    else v.pause();
+  };
+  v.addEventListener('waiting', () => { if (!v.paused) setLoading(true); });
+  v.addEventListener('playing', () => setLoading(false));
+  v.addEventListener('pause', () => setLoading(false));
+  v.addEventListener('error', () => setLoading(false));
   f.addEventListener('click', toggle); // the [ play ] text sits inside the frame
   const cover = new Image(); cover.onload = () => f.classList.add('ready'); cover.src = v.poster;
   bMute.addEventListener('click', () => { v.muted = !v.muted; draw(); });
@@ -237,7 +256,7 @@
   });
   v.addEventListener('loadedmetadata', () => { f.classList.add('ready'); draw(); });
   ['timeupdate', 'play', 'pause', 'volumechange'].forEach(ev => v.addEventListener(ev, draw));
-  v.addEventListener('ended', () => { v.currentTime = 0; draw(); });
+  v.addEventListener('ended', () => { v.load(); draw(); }); // reload shows the cover again
   if (v.readyState >= 1) f.classList.add('ready'); // metadata may already be in
   window.addEventListener('resize', draw);
   draw();
