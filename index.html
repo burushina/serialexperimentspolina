@@ -259,6 +259,7 @@
     '04': 'images/win_04_church.mp4'
   };
   const vids = {};
+  const LOAD_ID = Date.now().toString(36);
   const vbox = document.createElement('div');
   vbox.setAttribute('aria-hidden', 'true');
   // browsers pause muted autoplay video that is invisible (opacity 0 / 1px). so the videos sit,
@@ -269,7 +270,9 @@
     const v = document.createElement('video');
     v.muted = true; v.defaultMuted = true; v.loop = true; v.autoplay = true;
     v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
-    v.preload = 'auto'; v.src = VIDS[id];
+    // Safari sometimes refuses to play a video it serves from cache after a page refresh,
+    // so each page load asks for a fresh copy (the clips are tiny, ~50 KB each)
+    v.preload = 'auto'; v.src = VIDS[id] + '?r=' + LOAD_ID;
     v.style.cssText = 'position:absolute;left:0;top:0;width:60px;height:90px;object-fit:cover;';
     vbox.appendChild(v);
     v.play().catch(() => {});
@@ -277,9 +280,19 @@
   });
   // keep them running: some phones block autoplay until a touch, some pause on their own.
   // the selected window is the only one meant to be frozen.
+  const stuck = {};
   const kick = () => Object.entries(vids).forEach(([id, v]) => {
-    if (v.paused && id !== activeId) v.play().catch(() => {});
+    if (!v.paused || id === activeId) { stuck[id] = 0; return; }
+    stuck[id] = (stuck[id] || 0) + 1;
+    if (stuck[id] >= 3) { // still paused after a few tries: reload that clip from scratch
+      stuck[id] = 0;
+      v.src = VIDS[id] + '?r=' + Date.now().toString(36);
+      v.load();
+    }
+    v.play().catch(() => {});
   });
+  // coming back from the back/forward cache (also some refreshes): restart everything
+  window.addEventListener('pageshow', e => { if (e.persisted) kick(); });
   window.addEventListener('pointerdown', kick);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
   setInterval(() => { if (!document.hidden) kick(); }, 1500);
