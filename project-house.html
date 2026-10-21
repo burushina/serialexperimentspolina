@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>childhood home — polina burushina</title>
-<meta name="description" content="A childhood home, sold after emigration. Scanned and recorded before the sale. Roblox game.">
+<meta name="description" content="A childhood home, sold after emigration. Scanned and recorded before the sale. Video, Roblox game.">
 <meta property="og:title" content="childhood home — polina burushina">
-<meta property="og:description" content="A childhood home, sold after emigration. Scanned and recorded before the sale. Roblox game.">
+<meta property="og:description" content="A childhood home, sold after emigration. Scanned and recorded before the sale. Video, Roblox game.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,6 +61,26 @@
     background:var(--void); padding:1px 7px; }
   .frame .c { position:absolute; font-size:11px; line-height:1; color:var(--ink); background:var(--void); padding:0 1px; }
 
+  /* vertical 9:16 video: fills the column on a phone, but never taller
+     than ~78% of the screen, so it fits in view on desktop too */
+  .vid { margin:0 0 30px; }
+  .vframe { position:relative; margin:0 auto; aspect-ratio:9/16;
+    width:min(100%, calc(78vh * 9 / 16)); width:min(100%, calc(78svh * 9 / 16));
+    background:var(--void); border:1px dashed var(--line); cursor:pointer; }
+  .vframe.ready { border:0; }
+  .vframe video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  .vframe .tag { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    font-size:10px; letter-spacing:.12em; color:var(--dim); background:var(--void); padding:1px 7px; }
+  .vframe.ready .tag { display:none; }
+  .vbar { display:flex; justify-content:space-between; align-items:center; gap:10px;
+    margin:6px auto 0; font-size:12px; white-space:nowrap;
+    width:min(100%, calc(78vh * 9 / 16)); width:min(100%, calc(78svh * 9 / 16)); }
+  .vbar button { font:inherit; color:var(--ink); background:none; border:0; padding:0; cursor:pointer; }
+  .vbar button:hover { background:#fff; color:#000; }
+  .vbar button:focus-visible { outline:1px dashed #fff; outline-offset:2px; }
+  .vbar .track { flex:1; overflow:hidden; color:var(--dim); cursor:pointer; letter-spacing:0; }
+  .vbar .time { color:var(--dim); }
+
   .pn { display:flex; justify-content:space-between; gap:14px; font-size:12px; margin-top:6px; }
 
   footer.end { text-align:center; font-size:11px; color:var(--dim); margin-top:34px; line-height:2; }
@@ -85,8 +105,21 @@
 
   <div class="lead">
     <p>A childhood home, sold after emigration. Scanned and recorded before the sale.</p>
-    <p>Roblox game.</p>
+    <p>Video, Roblox game.</p>
   </div>
+  <section class="vid">
+    <div class="vframe" id="vframe">
+      <!-- put the file at images/Childhood_home_video.mp4 -->
+      <video id="vid" src="images/Childhood_home_video.mp4#t=0.1" preload="metadata" playsinline></video>
+      <span class="tag">video</span>
+    </div>
+    <div class="vbar" aria-label="video controls">
+      <button type="button" id="vplay">[ play ]</button>
+      <span class="track" id="vtrack" aria-hidden="true"></span>
+      <span class="time" id="vtime">0:00</span>
+      <button type="button" id="vmute">[ mute ]</button>
+    </div>
+  </section>
   <section class="figs">
     <figure>
       <div class="frame is-empty" data-src="images/Childhood_home_img_01.png" data-alt="childhood home"></div>
@@ -166,6 +199,43 @@
     clearTimeout(t);
     t = setTimeout(() => document.querySelectorAll('.frame.is-empty').forEach(grain), 200);
   });
+})();
+</script>
+<script>
+/* minimal text-only player for the 9:16 childhood home video.
+   click the video or [ play ] to start with sound; click the dotted
+   track to jump. if the file is missing, the dashed frame just stays. */
+(() => {
+  const v = document.getElementById('vid'), f = document.getElementById('vframe');
+  const bPlay = document.getElementById('vplay'), bMute = document.getElementById('vmute');
+  const track = document.getElementById('vtrack'), time = document.getElementById('vtime');
+  const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  function cells() { // how many glyphs fit in the track
+    const w = track.clientWidth, cw = parseFloat(getComputedStyle(track).fontSize) * 0.6;
+    return Math.max(4, Math.floor(w / cw));
+  }
+  function draw() {
+    const n = cells(), p = v.duration ? v.currentTime / v.duration : 0, k = Math.round(p * n);
+    track.textContent = '#'.repeat(k) + '\u00B7'.repeat(n - k);
+    time.textContent = fmt(v.currentTime) + ' / ' + fmt(v.duration);
+    bPlay.textContent = v.paused ? '[ play ]' : '[ pause ]';
+    bMute.textContent = v.muted ? '[ unmute ]' : '[ mute ]';
+  }
+  const toggle = () => { if (v.paused) { v.play().catch(() => {}); } else v.pause(); };
+  f.addEventListener('click', toggle);
+  bPlay.addEventListener('click', toggle);
+  bMute.addEventListener('click', () => { v.muted = !v.muted; draw(); });
+  track.addEventListener('click', e => {
+    if (!v.duration) return;
+    const r = track.getBoundingClientRect();
+    v.currentTime = ((e.clientX - r.left) / r.width) * v.duration; draw();
+  });
+  v.addEventListener('loadedmetadata', () => { f.classList.add('ready'); draw(); });
+  ['timeupdate', 'play', 'pause', 'volumechange'].forEach(ev => v.addEventListener(ev, draw));
+  v.addEventListener('ended', () => { v.currentTime = 0; draw(); });
+  if (v.readyState >= 1) f.classList.add('ready'); // metadata may already be in
+  window.addEventListener('resize', draw);
+  draw();
 })();
 </script>
 </body>
