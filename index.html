@@ -39,7 +39,7 @@
     background: var(--void); padding: 10px 18px;
     pointer-events: none;
   }
-  #readout .rt { font-size: 18px; letter-spacing: 0.04em; min-height: 1.4em; }
+  #readout .re, #readout .rt { font-size: 16px; line-height: 1.4; letter-spacing: 0.04em; min-height: 1.4em; }
   #readout .rd { font-size: 16px; line-height: 1.5; margin-top: 8px; min-height: 1.5em; }
   #readout .rh {
     font-size: 11px; letter-spacing: 0.1em; text-transform: none;
@@ -47,9 +47,12 @@
   }
   body.hot #readout .rh { display: block; }
 
+  @media (max-height: 760px) { #readout { bottom: 16px; } }
+
   @media (max-width: 760px) {
     #brand { font-size: 13px; }
-    #readout .rt { font-size: 15px; }
+    #readout { width: calc(100vw - 24px); padding: 10px 8px; }
+    #readout .re, #readout .rt { font-size: 13px; }
     #readout .rd { font-size: 13px; }
   }
 </style>
@@ -58,10 +61,11 @@
 
 <canvas id="stage"></canvas>
 
-<div id="brand" class="overlay">serial experiments polina<br>experiment #1: home</div>
+<div id="brand" class="overlay">serial experiments polina</div>
 
 
 <div id="readout">
+  <div class="re">experiment #1: home</div>
   <div class="rt">&nbsp;</div>
   <div class="rd">&nbsp;</div>
   <div class="rh">&nbsp;</div>
@@ -169,12 +173,16 @@
     const { glyphs, localZones, api } = blueprint();
 
     const span = Math.min(nCols - 14, 50);
-    const bodyRows = 16, roofRows = 7;
+    const roofRows = 7;
+    // keep the house above the caption block at the bottom
+    const capRow = Math.floor(readout.getBoundingClientRect().top / cellH) - 1;
+    const bodyRows = Math.max(12, Math.min(16, capRow - 2 - roofRows));
     const left = Math.floor((nCols - span) / 2);
     const right = left + span - 1;
     const mid = Math.floor((left + right) / 2);
 
-    const peak = Math.max(4, Math.floor((nRows - (roofRows + bodyRows)) / 2) - 3);
+    let peak = Math.max(4, Math.floor((nRows - (roofRows + bodyRows)) / 2) - 3);
+    peak = Math.max(2, Math.min(peak, capRow - (roofRows + bodyRows)));
     const eaves = peak + roofRows;
     const base = eaves + bodyRows;
 
