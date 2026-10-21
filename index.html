@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>window.__errs=[];window.addEventListener('error',function(e){window.__errs.push((e.message||'error')+' @'+(e.lineno||'?'))});window.addEventListener('unhandledrejection',function(e){window.__errs.push('rej '+(e.reason&&e.reason.message||e.reason))});</script>
 <style>
   :root { --ink: #ffffff; --void: #000000; }
   * { box-sizing: border-box; }
@@ -289,22 +290,7 @@
     });
   }
   const vReady = v => v.readyState >= 2 && v.videoWidth > 0;
-  // diagnostics: open the page with ?debug to see each window video's state
-  if (/[?&]debug\b/.test(location.search)) {
-    const dbg = document.createElement('pre');
-    dbg.style.cssText = 'position:fixed;left:6px;top:40px;z-index:50;margin:0;font:11px/1.4 monospace;color:#0f0;background:rgba(0,0,0,.75);padding:4px 6px;pointer-events:none;white-space:pre-wrap;max-width:95vw;';
-    document.body.appendChild(dbg);
-    const errs = {};
-    Object.entries(vids).forEach(([id, v]) => {
-      v.addEventListener('error', () => { errs[id] = 'err ' + (v.error && v.error.code); });
-      v.play().catch(e => { errs[id] = 'play: ' + e.name; });
-    });
-    setInterval(() => {
-      dbg.textContent = navigator.userAgent.slice(0, 90) + '\n' + Object.entries(vids).map(([id, v]) =>
-        id + ' rs=' + v.readyState + ' ns=' + v.networkState + ' paused=' + v.paused + ' t=' + v.currentTime.toFixed(1) +
-        ' ' + v.videoWidth + 'x' + v.videoHeight + ' ' + (errs[id] || '')).join('\n');
-    }, 500);
-  }
+  window.__vids = vids; // for the ?debug overlay
 
   // ---- glitch scheduler ----
   // each window: 'video' (normal) -> 'glitch' (torn frame) -> maybe 'label' ([ 03 ] shows
@@ -518,6 +504,29 @@
       document.fonts.ready.then(() => { measure(); scene = null; });
     });
   }
+})();
+</script>
+<script>
+/* ?debug overlay — independent of the main script, so it shows even if that one fails */
+(function () {
+  if (!/[?&]debug/.test(location.search)) return;
+  var d = document.createElement('pre');
+  d.style.cssText = 'position:fixed;left:6px;right:6px;top:60px;z-index:99;margin:0;font:11px/1.4 monospace;color:#0f0;background:rgba(0,0,0,.85);padding:6px;pointer-events:none;white-space:pre-wrap;';
+  document.body.appendChild(d);
+  function tick() {
+    var out = 'DEBUG ' + navigator.userAgent.slice(0, 80) + '\n';
+    var vs = window.__vids;
+    if (!vs) out += 'main script did not reach videos\n';
+    else Object.keys(vs).forEach(function (id) {
+      var v = vs[id];
+      out += id + ' rs=' + v.readyState + ' ns=' + v.networkState + ' paused=' + v.paused +
+        ' t=' + v.currentTime.toFixed(1) + ' ' + v.videoWidth + 'x' + v.videoHeight +
+        (v.error ? ' ERR' + v.error.code : '') + '\n';
+    });
+    out += 'errors: ' + (window.__errs.length ? window.__errs.join(' | ') : 'none');
+    d.textContent = out;
+  }
+  tick(); setInterval(tick, 500);
 })();
 </script>
 </body>
