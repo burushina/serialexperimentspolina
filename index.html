@@ -203,11 +203,22 @@
 
     const wL = left + Math.floor(span * 0.25);
     const wR = left + Math.floor(span * 0.75);
+    // windows are video rectangles (pixel space), one per floor slot.
     // numbering bottom-up: lower row 01,02 / upper row 03,04
-    api.label('03', wL - 3, Math.floor((inTop + fl1) / 2), '[ 03 ]');
-    api.label('04', wR - 3, Math.floor((inTop + fl1) / 2), '[ 04 ]');
-    api.label('01', wL - 3, Math.floor((fl1 + fl2) / 2), '[ 01 ]');
-    api.label('02', wR - 3, Math.floor((fl1 + fl2) / 2), '[ 02 ]');
+    const wins = [];
+    // all four windows share one size: the shorter floor decides it
+    const padY = Math.max(3, cellH * 0.35);
+    const winH = Math.min(fl1 - inTop, fl2 - fl1 - 1) * cellH - padY * 2;
+    function win(id, colCenter, r0, r1) {
+      const h = winH, w = Math.round(h * 2 / 3);
+      const y = ((r0 + r1 + 1) / 2) * cellH - h / 2; // centred in its floor
+      const cx = (colCenter + 0.5) * cellW;
+      wins.push({ id, x: Math.round(cx - w / 2), y: Math.round(y), w, h: Math.round(h) });
+    }
+    win('03', wL, inTop, fl1 - 1);
+    win('04', wR, inTop, fl1 - 1);
+    win('01', wL, fl1 + 1, fl2 - 1);
+    win('02', wR, fl1 + 1, fl2 - 1);
 
     const dBot = base, dTop = dBot - 4;
     api.text(mid - 3, dTop,     '+----+');
@@ -216,7 +227,7 @@
     api.text(mid - 3, dTop + 3, '|    |');
     api.text(mid - 3, dBot,     '|_||_|');
 
-    return { glyphs, localZones };
+    return { glyphs, localZones, wins };
   }
 
   // atmospheric grain — sin/jitter field over a small glyph set
@@ -233,16 +244,120 @@
     }
   }
 
-  let tick = 0;
-  function paint() {
+  // ---- window videos: small muted loops drawn into the canvas ----
+  const VIDS = {
+    '01': 'images/win_01_dollhouse.mp4',
+    '02': 'images/win_02_childhood_home.mp4',
+    '03': 'images/win_03_mill.mp4',
+    '04': 'images/win_04_church.mp4'
+  };
+  const vids = {};
+  const vbox = document.createElement('div');
+  vbox.setAttribute('aria-hidden', 'true');
+  vbox.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;';
+  document.body.appendChild(vbox);
+  Object.keys(VIDS).forEach(id => {
+    const v = document.createElement('video');
+    v.muted = true; v.defaultMuted = true; v.loop = true; v.autoplay = true;
+    v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+    v.preload = 'auto'; v.src = VIDS[id];
+    vbox.appendChild(v);
+    v.play().catch(() => {});
+    vids[id] = v;
+  });
+  // some phones (low-power mode) block autoplay until the first touch
+  const kick = () => Object.values(vids).forEach(v => { if (v.paused) v.play().catch(() => {}); });
+  window.addEventListener('pointerdown', kick, { once: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
+  const vReady = v => v.readyState >= 2 && v.videoWidth > 0;
+
+  // ---- glitch scheduler ----
+  // each window: 'video' (normal) -> 'glitch' (torn frame) -> maybe 'label' ([ 03 ] shows
+  // through for a moment) -> 'glitch' -> 'video'. one window at a time, at random.
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const state = {};
+  ['01', '02', '03', '04'].forEach(id => state[id] = { mode: 'video', until: 0, then: null });
+  let nextEvent = performance.now() + 1200 + Math.random() * 1500;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  function schedule(now) {
+    for (const id in state) {
+      const st = state[id];
+      if (st.mode !== 'video' && now >= st.until) {
+        if (st.mode === 'glitch' && st.then === 'label') { st.mode = 'label'; st.until = now + rnd(1100, 2400); st.then = null; }
+        else if (st.mode === 'label') { st.mode = 'glitch'; st.until = now + rnd(180, 380); st.then = null; }
+        else { st.mode = 'video'; }
+      }
+    }
+    if (reduceMotion || now < nextEvent) return;
+    const idle = Object.keys(state).filter(id => state[id].mode === 'video' && id !== activeId);
+    if (idle.length) {
+      const st = state[idle[(Math.random() * idle.length) | 0]];
+      st.mode = 'glitch'; st.until = now + rnd(220, 650);
+      st.then = Math.random() < 0.5 ? 'label' : null;
+    }
+    nextEvent = now + rnd(1400, 3800);
+  }
+
+  // cover-fit source rect for a video into a w x h box
+  function coverSrc(v, w, h) {
+    const vw = v.videoWidth, vh = v.videoHeight, k = Math.max(w / vw, h / vh);
+    const sw = w / k, sh = h / k;
+    return { sx: (vw - sw) / 2, sy: (vh - sh) / 2, sw, sh, k };
+  }
+  function drawVideo(v, r) {
+    const c = coverSrc(v, r.w, r.h);
+    ctx.drawImage(v, c.sx, c.sy, c.sw, c.sh, r.x, r.y, r.w, r.h);
+  }
+  function drawGlitch(v, r) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
+    ctx.fillStyle = '#000'; ctx.fillRect(r.x, r.y, r.w, r.h);
+    const c = coverSrc(v, r.w, r.h);
+    if (Math.random() < 0.85) ctx.drawImage(v, c.sx, c.sy, c.sw, c.sh, r.x + rnd(-3, 3), r.y, r.w, r.h);
+    // torn horizontal bands, shifted sideways
+    const bands = 3 + ((Math.random() * 6) | 0);
+    for (let i = 0; i < bands; i++) {
+      const bh = Math.max(2, rnd(0.03, 0.22) * r.h), by = rnd(0, r.h - bh), dx = rnd(-0.35, 0.35) * r.w;
+      ctx.drawImage(v, c.sx, c.sy + by / c.k, c.sw, bh / c.k, r.x + dx, r.y + by, r.w, bh);
+      if (Math.random() < 0.35) {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,0,90,0.35)' : 'rgba(0,220,255,0.35)';
+        ctx.fillRect(r.x + dx * 0.4, r.y + by, r.w, bh);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+    // white scan lines + dropout
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 3; i++) if (Math.random() < 0.5) ctx.fillRect(r.x, r.y + rnd(0, r.h), r.w, 1);
+    if (Math.random() < 0.15) { ctx.fillStyle = '#000'; ctx.fillRect(r.x, r.y + rnd(0, r.h * 0.7), r.w, rnd(4, r.h * 0.3)); }
+    ctx.restore();
+  }
+  function drawLabel(id, r, inverse) {
+    const txt = '[ ' + id + ' ]', tw = ctx.measureText(txt).width;
+    const tx = Math.round(r.x + r.w / 2 - tw / 2), ty = Math.round(r.y + r.h / 2 - cellH / 2);
+    if (inverse) {
+      const pad = Math.max(2, cellW * 0.35);
+      ctx.fillStyle = '#fff'; ctx.fillRect(tx - pad, ty, tw + pad * 2, cellH);
+      ctx.fillStyle = '#000'; ctx.fillText(txt, tx, ty);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.fillText(txt, tx, ty);
+    }
+    ctx.fillStyle = '#fff';
+  }
+
+  let tick = 0, scene = null;
+  function compose() {
     tick++;
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    scene = composeHouse();
+    scatter(scene.glyphs, tick * 0.08);
+  }
+  function paint(now) {
+    if (!scene) compose();
+    const { glyphs, localZones, wins } = scene;
+    schedule(now);
+
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-
-    const { glyphs, localZones } = composeHouse();
-    scatter(glyphs, tick * 0.08);
-
     ctx.fillStyle = '#fff';
     ctx.font = fontPx + "px 'IBM Plex Mono', 'Courier New', monospace";
     ctx.textBaseline = 'top';
@@ -251,13 +366,23 @@
       ctx.fillText(ch, c * cellW, r * cellH);
     });
 
-    // highlight the active label — stable inverse: solid white box, black text.
-    // only when something is actually selected (activeId may be null at rest).
+    // windows
+    for (const r of wins) {
+      const v = vids[r.id], st = state[r.id], ok = vReady(v);
+      ctx.fillStyle = '#000'; ctx.fillRect(r.x, r.y, r.w, r.h); // clear grain under the window
+      ctx.fillStyle = '#fff';
+      if (!ok || st.mode === 'label') drawLabel(r.id, r, activeId === r.id);
+      else if (st.mode === 'glitch') drawGlitch(v, r);
+      else {
+        drawVideo(v, r);
+        if (activeId === r.id) drawLabel(r.id, r, true);
+      }
+    }
+
+    // door label: stable inverse when selected
     const activeZone = activeId ? localZones.find(z => z.id === activeId) : null;
     if (activeZone) {
-      const zx = activeZone.c0 * cellW;
-      const zy = activeZone.r * cellH;
-      const zw = activeZone.len * cellW;
+      const zx = activeZone.c0 * cellW, zy = activeZone.r * cellH, zw = activeZone.len * cellW;
       const pad = Math.max(2, cellW * 0.35);
       ctx.fillStyle = '#fff';
       ctx.fillRect(zx - pad, zy, zw + pad * 2, cellH);
@@ -269,20 +394,22 @@
       ctx.fillStyle = '#fff';
     }
 
-    // rebuild pixel-space hit zones from this frame's labels
-    // hit zones expanded beyond the visible glyphs so taps/clicks land easily
+    // pixel-space hit zones: whole window rects + the door label, padded for easy taps
     const padX = cellW * (coarse ? 1.4 : 0.6);
     const padY = cellH * (coarse ? 1.1 : 0.4);
     zones = localZones.map(z => ({
       id: z.id,
       x0: z.c0 * cellW - padX, y0: z.r * cellH - padY,
       x1: (z.c0 + z.len) * cellW + padX, y1: (z.r + 1) * cellH + padY
-    }));
+    })).concat(wins.map(r => ({ id: r.id, x0: r.x - 4, y0: r.y - 4, x1: r.x + r.w + 4, y1: r.y + r.h + 4 })));
   }
 
-  let raf = null, last = 0;
+  let raf = null, lastGrain = 0, lastFrame = 0;
   function loop(ts) {
-    if (ts - last > 130) { last = ts; if (!document.hidden) paint(); }
+    if (!document.hidden) {
+      if (ts - lastGrain > 130) { lastGrain = ts; compose(); }
+      if (ts - lastFrame > 33) { lastFrame = ts; paint(ts); } // ~30fps for the videos
+    }
     raf = requestAnimationFrame(loop);
   }
 
@@ -327,7 +454,7 @@
     const p = PLACES[id]; if (p && p.go) window.location.href = p.go;
   });
 
-  window.addEventListener('resize', measure);
+  window.addEventListener('resize', () => { measure(); scene = null; });
   measure();
   leave();
   raf = requestAnimationFrame(loop);
@@ -337,7 +464,7 @@
   // re-measure once the web font is ready (canvas needs the real glyph metrics)
   if (document.fonts && document.fonts.ready) {
     document.fonts.load("16px 'IBM Plex Mono'").then(() => {
-      document.fonts.ready.then(() => { measure(); });
+      document.fonts.ready.then(() => { measure(); scene = null; });
     });
   }
 })();
