@@ -317,17 +317,15 @@
     for (const id in state) {
       const st = state[id];
       if (st.mode !== 'video' && now >= st.until) {
-        if (st.mode === 'glitch' && st.then === 'label') { st.mode = 'label'; st.until = now + rnd(1100, 2400); st.then = null; }
-        else if (st.mode === 'label') { st.mode = 'glitch'; st.until = now + rnd(180, 380); st.then = null; }
-        else { st.mode = 'video'; }
+        st.mode = 'video';
       }
     }
     if (reduceMotion || now < nextEvent) return;
     const idle = Object.keys(state).filter(id => state[id].mode === 'video' && id !== activeId);
     if (idle.length) {
       const st = state[idle[(Math.random() * idle.length) | 0]];
-      st.mode = 'glitch'; st.until = now + rnd(200, 420);
-      st.then = 'label';
+      // no glitch: the video just blinks out for a split second, showing the window number
+      st.mode = 'label'; st.until = now + rnd(160, 420);
     }
     nextEvent = now + rnd(4500, 9000);
   }
