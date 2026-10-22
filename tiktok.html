@@ -30,11 +30,11 @@
     letter-spacing: 0.04em;
     pointer-events: none;
   }
-  #brand { top: var(--top, 15vh); left: 0; right: 0; text-align: center; font-size: 16px; line-height: 1.4; text-transform: none; }
+  #brand { top: 15%; left: 0; right: 0; text-align: center; font-size: 16px; line-height: 1.4; text-transform: none; }
 
   #readout {
     position: fixed; z-index: 9;
-    left: 50%; bottom: var(--bottom, 30vh); transform: translateX(-50%);
+    left: 50%; bottom: 54px; transform: translateX(-50%);
     width: min(820px, calc(100vw - 80px));
     text-align: center; line-height: 1.5;
     background: var(--void); padding: 10px 18px;
@@ -81,9 +81,6 @@
    hit zones in canvas pixel space.
    ============================================================ */
 (() => {
-  const q = new URLSearchParams(location.search);
-  if (q.get('top')) document.documentElement.style.setProperty('--top', parseFloat(q.get('top')) + 'vh');
-  if (q.get('bottom')) document.documentElement.style.setProperty('--bottom', parseFloat(q.get('bottom')) + 'vh');
   const stage = document.getElementById('stage');
   const ctx = stage.getContext('2d');
   const readout = document.getElementById('readout');
@@ -180,16 +177,21 @@
     const span = Math.min(nCols - 14, 50);
     const roofRows = 7;
     // keep the house above the caption block at the bottom
-    const capRow = Math.floor(readout.getBoundingClientRect().top / cellH) - 1;
-    const brandBottom = Math.ceil(document.getElementById('brand').getBoundingClientRect().bottom / cellH) + 1;
-    const bodyRows = Math.max(12, Math.min(16, capRow - brandBottom - roofRows));
+    const capRow = Math.floor((window.innerHeight - 54 - 84) / cellH) - 1; // where the caption used to sit
+    const bodyRows = Math.max(12, Math.min(16, capRow - 2 - roofRows));
     const left = Math.floor((nCols - span) / 2);
     const right = left + span - 1;
     const mid = Math.floor((left + right) / 2);
 
-    const brandRow = Math.ceil(document.getElementById('brand').getBoundingClientRect().bottom / cellH) + 1;
-    let peak = Math.floor((brandRow + capRow - (roofRows + bodyRows)) / 2);
-    peak = Math.max(brandRow, Math.min(peak, capRow - (roofRows + bodyRows)));
+    let peak = Math.max(4, Math.floor((nRows - (roofRows + bodyRows)) / 2) - 3);
+    peak = Math.max(2, Math.min(peak, capRow - (roofRows + bodyRows)));
+    // captions follow the house: title a bit above the roof, the two lines just under the base
+    const capGap = Number(new URLSearchParams(location.search).get('gap') || 2);
+    readout.style.top = ((peak + roofRows + bodyRows + capGap) * cellH) + 'px';
+    readout.style.bottom = 'auto';
+    const topGap = Number(new URLSearchParams(location.search).get('topgap') || 4);
+    const brand = document.getElementById('brand');
+    brand.style.top = Math.max(window.innerHeight * 0.12, (peak - topGap) * cellH) + 'px';
     const eaves = peak + roofRows;
     const base = eaves + bodyRows;
 
