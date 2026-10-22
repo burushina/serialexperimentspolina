@@ -50,6 +50,7 @@
 
   /* frame for recording: only the two caption lines, no hover text */
   #readout .rd, #readout .rh { display: none; }
+  #readout { padding: 0 8px; }
 
   @media (max-width: 760px) {
     #brand { font-size: 13px; }
@@ -171,6 +172,31 @@
     return { glyphs, localZones, api };
   }
 
+  // ---- layout against TikTok's own UI ----
+  // On a phone screen recording TikTok covers roughly the top 12% (tabs) and everything
+  // below ~75% (username, caption, nav). Inside that free band we stack: air / title / air /
+  // house (same size as on the site) / air / two lines / air, with equal air everywhere.
+  // Band edges are % of the whole phone screen; tweak with ?top=12&bottom=75
+  const qs = new URLSearchParams(location.search);
+  const TOP_PCT = parseFloat(qs.get('top') || '12');
+  const BOTTOM_PCT = parseFloat(qs.get('bottom') || '75');
+  let layout = null;
+  function computeLayout(houseRows) {
+    const S = (window.screen && screen.height > window.innerHeight) ? screen.height : window.innerHeight;
+    const off = Math.max(0, Math.min(60, S - window.innerHeight)); // page starts below the status bar
+    const bandTop = S * TOP_PCT / 100 - off, bandBot = S * BOTTOM_PCT / 100 - off;
+    const brand = document.getElementById('brand');
+    const brandH = brand.offsetHeight, textH = readout.offsetHeight, houseH = houseRows * cellH;
+    const g = Math.max(cellH * 0.5, (bandBot - bandTop - brandH - houseH - textH) / 4);
+    const brandTop = bandTop + g;
+    const peakRow = Math.round((brandTop + brandH + g) / cellH);
+    const houseBot = (peakRow + houseRows) * cellH;
+    brand.style.top = Math.round(brandTop) + 'px';
+    readout.style.bottom = 'auto';
+    readout.style.top = Math.round(Math.max(houseBot + cellH * 0.5, bandBot - g - textH)) + 'px';
+    return peakRow;
+  }
+
   function composeHouse() {
     const { glyphs, localZones, api } = blueprint();
 
@@ -178,20 +204,12 @@
     const roofRows = 7;
     // keep the house above the caption block at the bottom
     const capRow = Math.floor((window.innerHeight - 54 - 84) / cellH) - 1; // where the caption used to sit
-    const bodyRows = Math.max(12, Math.min(16, capRow - 2 - roofRows));
+    const bodyRows = 16; // same house as on the site
     const left = Math.floor((nCols - span) / 2);
     const right = left + span - 1;
     const mid = Math.floor((left + right) / 2);
 
-    let peak = Math.max(4, Math.floor((nRows - (roofRows + bodyRows)) / 2) - 3);
-    peak = Math.max(2, Math.min(peak, capRow - (roofRows + bodyRows)));
-    // captions follow the house: title a bit above the roof, the two lines just under the base
-    const capGap = Number(new URLSearchParams(location.search).get('gap') || 2);
-    readout.style.top = ((peak + roofRows + bodyRows + capGap) * cellH) + 'px';
-    readout.style.bottom = 'auto';
-    const topGap = Number(new URLSearchParams(location.search).get('topgap') || 4);
-    const brand = document.getElementById('brand');
-    brand.style.top = Math.max(window.innerHeight * 0.12, (peak - topGap) * cellH) + 'px';
+    const peak = computeLayout(roofRows + 16 + 1);
     const eaves = peak + roofRows;
     const base = eaves + bodyRows;
 
