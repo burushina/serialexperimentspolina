@@ -193,7 +193,8 @@
     const houseBot = (peakRow + houseRows) * cellH;
     brand.style.top = Math.round(brandTop) + 'px';
     readout.style.bottom = 'auto';
-    readout.style.top = Math.round(Math.max(houseBot + cellH * 0.5, bandBot - g - textH)) + 'px';
+    const down = parseFloat(qs.get('down') || '5'); // extra lines lower for the two bottom lines
+    readout.style.top = Math.round(Math.max(houseBot + cellH * 0.5, bandBot - g - textH) + down * cellH) + 'px';
     return peakRow;
   }
 
