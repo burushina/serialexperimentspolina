@@ -287,6 +287,8 @@
   }
 
   // ---- window videos: small muted loops drawn into the canvas ----
+  // temporarily off: windows show only their numbers. set to true to bring the videos back.
+  const SHOW_VIDEOS = false;
   const VIDS = {
     '01': 'images/win_01_dollhouse.mp4',
     '02': 'images/win_02_childhood_home.mp4',
@@ -301,7 +303,7 @@
   // full size, at their window positions *under* the opaque canvas, which paints them.
   vbox.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;';
   document.body.appendChild(vbox);
-  Object.keys(VIDS).forEach(id => {
+  Object.keys(SHOW_VIDEOS ? VIDS : {}).forEach(id => {
     const v = document.createElement('video');
     v.muted = true; v.defaultMuted = true; v.loop = true; v.autoplay = true;
     v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
@@ -333,11 +335,12 @@
   setInterval(() => { if (!document.hidden) kick(); }, 1500);
   function placeVideos(wins) {
     wins.forEach(r => {
+      if (!vids[r.id]) return;
       const st = vids[r.id].style;
       st.left = r.x + 'px'; st.top = r.y + 'px'; st.width = r.w + 'px'; st.height = r.h + 'px';
     });
   }
-  const vReady = v => v.readyState >= 2 && v.videoWidth > 0;
+  const vReady = v => !!v && v.readyState >= 2 && v.videoWidth > 0;
   window.__vids = vids; // for the ?debug overlay
 
   // ---- glitch scheduler ----
