@@ -401,15 +401,22 @@
     for (let i = 0; i < 2; i++) if (Math.random() < 0.4) ctx.fillRect(r.x, r.y + rnd(0, r.h), r.w, 1);
     ctx.restore();
   }
+  // where the ink of a label actually sits inside its text line (textBaseline 'top'):
+  // used to centre the white highlight box on the glyphs, not on the line box
+  function inkMid(txt) {
+    const m = ctx.measureText(txt);
+    return (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2;
+  }
   function drawLabel(id, r, inverse) {
     const txt = '[ ' + id + ' ]', tw = ctx.measureText(txt).width;
     const tx = Math.round(r.x + r.w / 2 - tw / 2), ty = Math.round(r.y + r.h / 2 - cellH / 2);
+    const textY = Math.round(r.y + r.h / 2 - inkMid(txt));   // glyphs centred on the window
     if (inverse) {
       const pad = Math.max(2, cellW * 0.35);
       ctx.fillStyle = '#fff'; ctx.fillRect(tx - pad, ty, tw + pad * 2, cellH);
-      ctx.fillStyle = '#000'; ctx.fillText(txt, tx, ty);
+      ctx.fillStyle = '#000'; ctx.fillText(txt, tx, textY);
     } else {
-      ctx.fillStyle = '#fff'; ctx.fillText(txt, tx, ty);
+      ctx.fillStyle = '#fff'; ctx.fillText(txt, tx, textY);
     }
     ctx.fillStyle = '#fff';
   }
@@ -456,7 +463,8 @@
       const zx = activeZone.c0 * cellW, zy = activeZone.r * cellH, zw = activeZone.len * cellW;
       const pad = Math.max(2, cellW * 0.35);
       ctx.fillStyle = '#fff';
-      ctx.fillRect(zx - pad, zy, zw + pad * 2, cellH);
+      const boxY = Math.round(zy + inkMid('| 00 |') - cellH / 2);  // box centred on the glyphs
+      ctx.fillRect(zx - pad, boxY, zw + pad * 2, cellH);
       ctx.fillStyle = '#000';
       for (let i = 0; i < activeZone.len; i++) {
         const ch = glyphs.get((activeZone.c0 + i) + ',' + activeZone.r);
