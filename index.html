@@ -42,6 +42,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>if(/\/index(\.html)?$/.test(location.pathname)&&location.protocol!=='file:')history.replaceState(null,'',location.pathname.replace(/index(\.html)?$/,'')+location.search+location.hash);</script>
 <script>window.__errs=[];window.addEventListener('error',function(e){window.__errs.push((e.message||'error')+' @'+(e.lineno||'?'))});window.addEventListener('unhandledrejection',function(e){window.__errs.push('rej '+(e.reason&&e.reason.message||e.reason))});</script>
 <style>
   :root { --ink: #ffffff; --void: #000000; }
@@ -512,7 +513,7 @@
     const p = PLACES[id]; if (!p) return;
     setActive(id);
     rt.textContent = id === '00' ? '[ 00 ] about \u2192' : '[ ' + id + ' ] ' + p.label + ' \u2192';
-    rd.textContent = p.blurb;
+    rd.innerHTML = '&nbsp;'; // no descriptions on hover: just the number and the name
     readout.classList.add('sel');
     if (coarse) document.body.classList.add('hot'); // touch only: second tap opens
   }
