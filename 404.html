@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>no room here — polina burushina</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html,body { margin:0; height:100%; background:#000; color:#fff; font:13px/1.7 'IBM Plex Mono','Courier New',monospace; }
+  ::selection { background:#fff; color:#000; }
+  a { color:#fff; }
+  a:hover { background:#fff; color:#000; text-decoration:none; }
+  .wrap { min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:24px 16px; box-sizing:border-box; text-align:center; }
+  .site { font-size:15px; } .site a { text-decoration:none; }
+  pre { margin:0; font:inherit; font-size:14px; line-height:1.32; white-space:pre; }
+  .dim { color:rgba(255,255,255,.55); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="site"><a href="/">serial experiments polina</a></div>
+  <pre id="art" aria-hidden="true"></pre>
+  <div>[ 404 ] no room here.</div>
+  <div><a href="/">&larr; back to the house</a></div>
+</div>
+<script>
+/* a small empty house with a missing door, and the same drifting "snow" as the main page */
+(() => {
+  const HOUSE = ["               /\\               ", "            //    \\\\            ", "          //        \\\\          ", "        //            \\\\        ", "      //                \\\\      ", "     ______________________     ", "     |                    |     ", "     |   ..............   |     ", "     |                    |     ", "     |       +----+       |     ", "     |       :    :       |     ", "     |       : ?? :       |     ", "     |       :    :       |     ", "     |_______:____:_______|     "];
+  const G = ['.', ':', '·', '+', '~', '°', '*'];
+  const art = document.getElementById('art');
+  function frame() {
+    art.textContent = HOUSE.map(row => row.replace(/ /g, () => Math.random() < 0.02 ? G[(Math.random() * G.length) | 0] : ' ')).join('\n');
+  }
+  frame(); setInterval(frame, 130);
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,61 @@
 {
   "redirects": [
-    { "source": "/index.html", "destination": "/", "permanent": true },
-    { "source": "/index", "destination": "/", "permanent": true }
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/index",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/about.html",
+      "destination": "/about",
+      "permanent": true
+    },
+    {
+      "source": "/project-atlas.html",
+      "destination": "/project-atlas",
+      "permanent": true
+    },
+    {
+      "source": "/project-house.html",
+      "destination": "/project-house",
+      "permanent": true
+    },
+    {
+      "source": "/project-mill.html",
+      "destination": "/project-mill",
+      "permanent": true
+    },
+    {
+      "source": "/project-church.html",
+      "destination": "/project-church",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/about",
+      "destination": "/about.html"
+    },
+    {
+      "source": "/project-atlas",
+      "destination": "/project-atlas.html"
+    },
+    {
+      "source": "/project-house",
+      "destination": "/project-house.html"
+    },
+    {
+      "source": "/project-mill",
+      "destination": "/project-mill.html"
+    },
+    {
+      "source": "/project-church",
+      "destination": "/project-church.html"
+    }
   ]
 }
