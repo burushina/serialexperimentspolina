@@ -267,6 +267,8 @@
     api.text(mid - 3, dTop,     '+----+');
     api.text(mid - 3, dTop + 1, '|    |');
     api.label('00', mid - 3, dTop + 2, '| 00 |');
+    // the whole door is tappable, not just the '00' row
+    Object.assign(localZones[localZones.length - 1], { hitR0: dTop, hitRows: dBot - dTop + 1 });
     api.text(mid - 3, dTop + 3, '|    |');
     api.text(mid - 3, dBot,     '|_||_|');
 
@@ -477,11 +479,13 @@
     // pixel-space hit zones: whole window rects + the door label, padded for easy taps
     const padX = cellW * (coarse ? 1.4 : 0.6);
     const padY = cellH * (coarse ? 1.1 : 0.4);
-    zones = localZones.map(z => ({
-      id: z.id,
-      x0: z.c0 * cellW - padX, y0: z.r * cellH - padY,
-      x1: (z.c0 + z.len) * cellW + padX, y1: (z.r + 1) * cellH + padY
-    })).concat(wins.map(r => ({ id: r.id, x0: r.x - 4, y0: r.y - 4, x1: r.x + r.w + 4, y1: r.y + r.h + 4 })));
+    const wPad = coarse ? 14 : 4;   // fingers are bigger than cursors
+    zones = localZones.map(z => {
+      const r0 = z.hitR0 != null ? z.hitR0 : z.r, rows = z.hitRows || 1;
+      return { id: z.id,
+        x0: z.c0 * cellW - padX, y0: r0 * cellH - (z.hitR0 != null ? cellH * 0.4 : padY),
+        x1: (z.c0 + z.len) * cellW + padX, y1: (r0 + rows) * cellH + (z.hitR0 != null ? cellH * 0.4 : padY) };
+    }).concat(wins.map(r => ({ id: r.id, x0: r.x - wPad, y0: r.y - wPad, x1: r.x + r.w + wPad, y1: r.y + r.h + wPad })));
   }
 
   let raf = null, lastGrain = 0, lastFrame = 0;
@@ -543,7 +547,15 @@
   stage.addEventListener('click', e => {
     if (stmtOpen) return;
     const id = hitAt(e.clientX, e.clientY);
-    if (!id) { if (coarse) leave(); return; }
+    if (!id) {
+      // touch: a tap that just misses the selected item keeps it selected (only a clear miss resets)
+      if (coarse && activeId) {
+        const z = zones.find(q => q.id === activeId), m = cellH * 2;
+        if (z && e.clientX > z.x0 - m && e.clientX < z.x1 + m && e.clientY > z.y0 - m && e.clientY < z.y1 + m) { open(activeId); return; }
+      }
+      if (coarse) leave();
+      return;
+    }
     // touch: first tap selects (frozen frame + number + caption); second tap or caption tap opens
     if (coarse && armed !== id) { show(id); armed = id; return; }
     open(id);
