@@ -17,22 +17,42 @@
     },
     {
       "source": "/project-atlas.html",
-      "destination": "/project-atlas",
+      "destination": "/dollhouse",
+      "permanent": true
+    },
+    {
+      "source": "/project-atlas",
+      "destination": "/dollhouse",
       "permanent": true
     },
     {
       "source": "/project-house.html",
-      "destination": "/project-house",
+      "destination": "/childhood-home",
+      "permanent": true
+    },
+    {
+      "source": "/project-house",
+      "destination": "/childhood-home",
       "permanent": true
     },
     {
       "source": "/project-mill.html",
-      "destination": "/project-mill",
+      "destination": "/artist-residency",
+      "permanent": true
+    },
+    {
+      "source": "/project-mill",
+      "destination": "/artist-residency",
       "permanent": true
     },
     {
       "source": "/project-church.html",
-      "destination": "/project-church",
+      "destination": "/village-church",
+      "permanent": true
+    },
+    {
+      "source": "/project-church",
+      "destination": "/village-church",
       "permanent": true
     }
   ],
@@ -42,19 +62,19 @@
       "destination": "/about.html"
     },
     {
-      "source": "/project-atlas",
+      "source": "/dollhouse",
       "destination": "/project-atlas.html"
     },
     {
-      "source": "/project-house",
+      "source": "/childhood-home",
       "destination": "/project-house.html"
     },
     {
-      "source": "/project-mill",
+      "source": "/artist-residency",
       "destination": "/project-mill.html"
     },
     {
-      "source": "/project-church",
+      "source": "/village-church",
       "destination": "/project-church.html"
     }
   ]
