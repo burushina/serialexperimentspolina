@@ -131,14 +131,14 @@
   const rd = readout.querySelector('.rd');
 
   const PLACES = {
-    '01': { label: 'home is a feeling', meta: '',
-      blurb: 'a grandfather’s handmade dollhouse, rebuilt at full scale, large enough to walk into.', go: '/dollhouse' },
-    '02': { label: 'home is a place', meta: '',
+    '01': { label: 'home is a place', meta: '',
       blurb: 'a childhood home, sold after emigration. scanned and recorded before the sale.', go: '/childhood-home' },
-    '03': { label: 'home is where you are', meta: '',
+    '02': { label: 'home is where you are', meta: '',
       blurb: 'an 18th-century watermill, now an artist residency.', go: '/artist-residency' },
-    '04': { label: 'home is where you return', meta: '',
+    '03': { label: 'home is where you return', meta: '',
       blurb: 'a village church and a concert that took place in it.', go: '/village-church' },
+    '04': { label: 'home is a feeling', meta: '',
+      blurb: 'a grandfather’s handmade dollhouse, rebuilt at full scale, large enough to walk into.', go: '/dollhouse' },
     '00': { label: 'about', meta: '',
       blurb: 'statement and contact.', go: '/about' }
   };
@@ -297,10 +297,10 @@
   // temporarily off: windows show only their numbers. set to true to bring the videos back.
   const SHOW_VIDEOS = false;
   const VIDS = {
-    '01': 'images/win_01_dollhouse.mp4',
-    '02': 'images/win_02_childhood_home.mp4',
-    '03': 'images/win_03_mill.mp4',
-    '04': 'images/win_04_church.mp4'
+    '01': 'images/win_02_childhood_home.mp4',
+    '02': 'images/win_03_mill.mp4',
+    '03': 'images/win_04_church.mp4',
+    '04': 'images/win_01_dollhouse.mp4'
   };
   const vids = {};
   const LOAD_ID = Date.now().toString(36);
