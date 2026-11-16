@@ -72,8 +72,7 @@
   /* vertical 9:16 video: fills the column on a phone, but never taller
      than ~78% of the screen, so it fits in view on desktop too */
   .vid { margin:0 0 30px; }
-  .vframe { position:relative; margin:0 auto; aspect-ratio:9/16;
-    width:min(100%, calc(78vh * 9 / 16)); width:min(100%, calc(78svh * 9 / 16));
+  .vframe { position:relative; margin:0 auto; aspect-ratio:16/9; width:100%;
     background:var(--void); border:1px dashed var(--line); cursor:pointer; }
   .vframe.ready { border:0; }
   .vframe video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
@@ -123,11 +122,9 @@
     <p>duration: 10 minutes</p>
     <p><a href="https://serialexperimentspolina.itch.io/doppelganger?secret=MAPU4MKwbGlKwVpqwsj3ata5k" target="_blank" rel="noopener">[ play in browser ]</a></p>
   </div>
-  <!-- VIDEO TEMPORARILY HIDDEN: to bring it back, delete the word "hidden" below and set preload="metadata" on the <video> -->
-  <section class="vid" hidden>
+  <section class="vid">
     <div class="vframe" id="vframe">
-      <!-- put the file at images/Childhood_home_video.mp4 -->
-      <video id="vid" src="images/Childhood_home_video.mp4" poster="images/Childhood_home_cover.jpg" preload="none" playsinline></video>
+      <video id="vid" src="images/Childhood_home_doppelganger.mp4" poster="images/Childhood_home_doppelganger_cover.jpg" preload="metadata" playsinline></video>
       <button type="button" class="vplay" id="vplay">[ play ]</button>
     </div>
     <div class="vbar" aria-label="video controls">
