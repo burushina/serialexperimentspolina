@@ -51,6 +51,8 @@
   /* one image per row, stacked; photos are landscape */
   .figs { display:flex; flex-direction:column; gap:22px; margin:0 0 30px; }
   figure { margin:0; }
+  figcaption { margin-top:6px; font-size:10px; line-height:1.4; color:var(--dim); }
+  figcaption a { color:var(--dim); }
 
   /* frame: transparent by default. placeholder (border+grain) only while
      .is-empty; once an <img> loads we add .loaded and everything vanishes. */
@@ -143,6 +145,7 @@
     </figure>
     <figure>
       <div class="frame is-empty" data-src="images/Mill_flower_cards.gif" data-alt="artist residency, holographic cards of the three flowers no one has recorded here since 1897"></div>
+      <figcaption>flower photos on the cards: <a href="https://commons.wikimedia.org/wiki/File:Common_cottongrass_in_a_cliff_crevice_2.jpg" target="_blank" rel="noopener">W.carter</a> (CC0), <a href="https://commons.wikimedia.org/wiki/File:Parnassia_palustris_(flowers).jpg" target="_blank" rel="noopener">Hans Hillewaert</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), <a href="https://commons.wikimedia.org/wiki/File:Dactylorhiza_incarnata_-_kahkjaspunane_s%C3%B5rmk%C3%A4pp_Pakri.jpg" target="_blank" rel="noopener">Ivar Leidus</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), via Wikimedia Commons. The cards are shared under CC BY-SA 3.0.</figcaption>
     </figure>
     <figure>
       <div class="frame is-empty" data-src="images/Mill_new_04.jpg" data-alt="artist residency"></div>
